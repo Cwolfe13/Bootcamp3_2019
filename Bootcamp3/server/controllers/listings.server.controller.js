@@ -30,7 +30,7 @@ exports.create = function(req, res) {
   /* save the coordinates (located in req.results if there is an address property) */
   if(req.results) {
     listing.coordinates = {
-      latitude: req.results.lat, 
+      latitude: req.results.lat,
       longitude: req.results.lng
     };
   }
@@ -57,7 +57,45 @@ exports.read = function(req, res) {
 exports.update = function(req, res) {
   var listing = req.listing;
 
+  //Validate that data was passed into the update function
+  if(!req.body) {
+    return res.status(400).send({
+        message: "Cannot update a listing with empty content"
+    });
+  }
+
+  //Find the listing by ID as specified in the routes file and update it
   /* Replace the listings's properties with the new properties found in req.body */
+  Listing.findByIdAndUpdate(req.params.listingId, {
+      code: req.body.code,
+      name: req.body.name,
+      coordinates: {
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+    },
+      address: req.body.address
+  }, {new: true})
+      .then(listing => {
+        if (!listing) {
+            return res.status(404).send({
+                message: "Listing was not found with the provided Id " + req.params.listingId
+            });
+        }
+        /* Save the listing */
+        listing.save();
+        // Respond
+        res.send(listing);
+      }).catch(err => {
+        if(err.kind === 'ObjectId') {
+            return res.status(404).send({
+                message: "Listing was not found with the provided Id " + req.params.listingId
+            });
+        }
+        return res.status(500).send({
+          message: "Error updating listing with Id " + req.params.listingId
+        });
+       });
+
  
   /*save the coordinates (located in req.results if there is an address property) */
  
@@ -69,6 +107,25 @@ exports.update = function(req, res) {
 exports.delete = function(req, res) {
   var listing = req.listing;
 
+  Listing.findByIdAndRemove(req.params.listingId)
+      .then(listing => {
+          if(!listing) {
+              return res.status(404).send({
+                  message: "Listing not found with id " + req.params.listingId
+              })
+          }
+          res.send({message: "Listing deleted successfully!"});
+      }).catch(err => {
+          if (err.kind === 'ObjectId' || err.name === 'NotFound') {
+              return res.status(404).send({
+                  message: "Listing not found with id " + req.params.listingId
+              });
+          }
+          return res.status(500).send({
+              message: "Could not delete listing with id " + req.params.listingId
+          });
+  });
+
   /* Add your code to remove the listins */
 
 };
@@ -76,6 +133,14 @@ exports.delete = function(req, res) {
 /* Retreive all the directory listings, sorted alphabetically by listing code */
 exports.list = function(req, res) {
   /* Add your code */
+    Listing.find()
+        .then(listings => {
+            res.send(listings);
+        }).catch(err => {
+            res.status(500).send({
+                message: err.message || "Some error occured"
+            })
+    })
 };
 
 /* 
